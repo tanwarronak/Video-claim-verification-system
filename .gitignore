@@ -1,0 +1,78 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Python environments & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# Environment configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Client build artifacts
+client/dist/
+client/dist-ssr/
+*.local
+
+# Ephemeral media and upload storage
+server/uploads/*
+!server/uploads/.gitkeep
+server/temp/*
+!server/temp/.gitkeep
+
+# Common raw media files
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.flv
+*.wmv
+*.wav
+*.mp3
+*.m4a
+*.aac
+
+# Whisper model cache (local models)
+whisper-service/models/
+*.bin
+*.pt
+
+# OS / IDE metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
