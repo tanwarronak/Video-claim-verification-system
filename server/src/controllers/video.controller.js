@@ -18,17 +18,30 @@ export class VideoController {
       return next(err);
     }
 
+    const language = typeof req.body?.language === "string"
+      ? req.body.language.trim().toLowerCase()
+      : "";
     const uploadedVideoPath = req.file.path;
     const tempWavPath = path.join(config.tempDir, `audio_${uuidv4()}.wav`);
 
     try {
+      if (language && !/^[a-z]{2,3}$/.test(language)) {
+        const err = new Error("Language must be a 2- or 3-letter language code, such as 'en' or 'hi'.");
+        err.code = "INVALID_LANGUAGE";
+        err.statusCode = 400;
+        throw err;
+      }
+
       console.log(`[VideoController] Processing uploaded video: ${req.file.originalname} (${req.file.size} bytes)`);
 
       // 1. Extract audio via FFmpeg
       const extractionResult = await VideoService.extractAudio(uploadedVideoPath, tempWavPath);
 
       // 2. Send extracted audio to Whisper microservice
-      const transcriptData = await TranscriptionService.transcribeAudio(extractionResult.wavPath);
+      const transcriptData = await TranscriptionService.transcribeAudio(
+        extractionResult.wavPath,
+        language || undefined
+      );
 
       // 3. Assemble and return structured response
       return sendSuccess(

@@ -8,6 +8,8 @@ export function VideoUploader({
   onSubmit,
   loading,
   error,
+  transcriptionLanguage,
+  onTranscriptionLanguageChange,
 }) {
   const fileInputRef = useRef(null);
 
@@ -80,6 +82,21 @@ export function VideoUploader({
               </button>
             )}
           </div>
+
+          <label className="language-field">
+            <span>Video language (optional ISO code)</span>
+            <input
+              type="text"
+              value={transcriptionLanguage}
+              onChange={(event) => onTranscriptionLanguageChange(event.target.value)}
+              placeholder="Auto-detect, or enter e.g. en, hi, es"
+              maxLength={3}
+              pattern="[a-zA-Z]{2,3}"
+              disabled={loading}
+              aria-label="Video language ISO code"
+            />
+            <small>Choosing the spoken language can improve transcription accuracy.</small>
+          </label>
 
           <button
             type="button"

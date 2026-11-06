@@ -37,12 +37,15 @@ export function errorHandler(err, _req, res, _next) {
     config.nodeEnv === "development"
       ? err.message || "An internal server error occurred."
       : "An unexpected internal server error occurred.";
+  const statusCode = Number.isInteger(err.statusCode) && err.statusCode >= 500 && err.statusCode <= 599
+    ? err.statusCode
+    : 500;
 
   return sendError(
     res,
     message,
     err.code || "INTERNAL_SERVER_ERROR",
-    500,
+    statusCode,
     config.nodeEnv === "development" ? err.stack : null
   );
 }

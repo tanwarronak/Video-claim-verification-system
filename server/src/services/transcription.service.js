@@ -10,7 +10,7 @@ export class TranscriptionService {
    * @param {string} audioFilePath - Absolute path to the 16kHz WAV file
    * @returns {Promise<{ text: string, duration: number, language: string, segments: Array<{ id: number, start: number, end: number, text: string }> }>}
    */
-  static async transcribeAudio(audioFilePath) {
+  static async transcribeAudio(audioFilePath, language) {
     if (!fs.existsSync(audioFilePath)) {
       const err = new Error(`Audio file not found: ${audioFilePath}`);
       err.code = "AUDIO_FILE_NOT_FOUND";
@@ -23,6 +23,9 @@ export class TranscriptionService {
       filename: path.basename(audioFilePath),
       contentType: "audio/wav",
     });
+    if (language) {
+      form.append("language", language);
+    }
 
     const endpoint = `${config.whisperServiceUrl}/transcribe`;
 
@@ -34,7 +37,7 @@ export class TranscriptionService {
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 300000, // 5 min timeout for long audio
+        timeout: config.whisperRequestTimeoutMs,
       });
 
       if (!response.data || !response.data.success) {
@@ -50,6 +53,16 @@ export class TranscriptionService {
         connErr.code = "WHISPER_SERVICE_UNAVAILABLE";
         connErr.statusCode = 503;
         throw connErr;
+      }
+
+      if (err.code === "ECONNABORTED" || err.code === "ETIMEDOUT") {
+        const timeoutMinutes = Math.round(config.whisperRequestTimeoutMs / 60000);
+        const timeoutErr = new Error(
+          `Whisper transcription exceeded its ${timeoutMinutes}-minute time limit. For long videos, increase WHISPER_REQUEST_TIMEOUT_MS in server/.env or use a faster device/model.`
+        );
+        timeoutErr.code = "TRANSCRIPTION_TIMEOUT";
+        timeoutErr.statusCode = 504;
+        throw timeoutErr;
       }
 
       console.error("[TranscriptionService] Error during transcription request:", err.message);

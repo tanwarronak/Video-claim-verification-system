@@ -20,10 +20,17 @@ class WhisperService:
         model_size: Optional[str] = None,
         device: Optional[str] = None,
         compute_type: Optional[str] = None,
+        beam_size: Optional[int] = None,
     ):
-        self.model_size = model_size or os.getenv("WHISPER_MODEL_SIZE", "base")
-        requested_device = device or os.getenv("WHISPER_DEVICE", "auto")
-        requested_compute = compute_type or os.getenv("WHISPER_COMPUTE_TYPE", "auto")
+        self.model_size = model_size or os.getenv("WHISPER_MODEL_SIZE") or "small"
+        requested_device = device or os.getenv("WHISPER_DEVICE") or "auto"
+        requested_compute = compute_type or os.getenv("WHISPER_COMPUTE_TYPE") or "auto"
+        self.beam_size = int(
+            beam_size if beam_size is not None else os.getenv("WHISPER_BEAM_SIZE", "5")
+        )
+        if self.beam_size < 1:
+            raise ValueError("WHISPER_BEAM_SIZE must be a positive integer.")
+        self.initial_prompt = os.getenv("WHISPER_INITIAL_PROMPT", "").strip() or None
 
         # Determine optimal device
         if requested_device == "auto":
@@ -57,19 +64,30 @@ class WhisperService:
             cls._instance = cls()
         return cls._instance
 
-    def transcribe(self, audio_path: str) -> Dict[str, Any]:
+    def transcribe(self, audio_path: str, language: Optional[str] = None) -> Dict[str, Any]:
         """
         Transcribe an audio file and return full text and timestamped segments.
         """
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found at path: {audio_path}")
 
-        # beam_size=5 for balanced speed & accuracy, word_timestamps=False (segment level is optimal for claims)
+        options = {
+            "language": language,
+            "beam_size": self.beam_size,
+            "word_timestamps": False,
+            "vad_filter": True,
+            "temperature": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+            "compression_ratio_threshold": 2.4,
+            "log_prob_threshold": -1.0,
+            "no_speech_threshold": 0.6,
+            "condition_on_previous_text": True,
+        }
+        if self.initial_prompt:
+            options["initial_prompt"] = self.initial_prompt
+
         segments_gen, info = self.model.transcribe(
             audio_path,
-            beam_size=5,
-            word_timestamps=False,
-            vad_filter=True,  # Voice Activity Detection filter to skip non-speech regions
+            **options,
         )
 
         segments: List[Dict[str, Any]] = []

@@ -6,9 +6,10 @@ from contextlib import asynccontextmanager
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 import uvicorn
 
 from service import WhisperService
@@ -47,11 +48,7 @@ class HealthResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Eagerly initialize model on startup
-    try:
-        WhisperService.get_instance()
-    except Exception as exc:
-        print(f"[ERROR] Failed to load Whisper model on startup: {exc}")
+    WhisperService.get_instance()
     yield
 
 
@@ -85,7 +82,12 @@ def health_check():
 
 
 @app.post("/transcribe", response_model=TranscribeResponse)
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    language: Optional[str] = Form(
+        None, min_length=2, max_length=3, pattern=r"^[a-zA-Z]{2,3}$"
+    ),
+):
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,7 +104,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
 
         svc = WhisperService.get_instance()
-        result = svc.transcribe(temp_file_path)
+        result = await run_in_threadpool(
+            svc.transcribe, temp_file_path, language.lower() if language else None
+        )
 
         return TranscribeResponse(
             success=True,
