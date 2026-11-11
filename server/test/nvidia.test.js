@@ -31,6 +31,50 @@ describe("NVIDIA NIM provider integration", () => {
     assert.equal(request[2].headers.Authorization, "Bearer test-nvidia-key");
   });
 
+  it("includes NVIDIA's HTTP error details without exposing the API key", async (t) => {
+    const apiKey = "test-nvidia-key";
+    t.mock.method(axios, "post", async () => {
+      const error = new Error("Request failed with status code 400");
+      error.response = {
+        status: 400,
+        data: {
+          error: {
+            message: `Model unavailable for key ${apiKey}`,
+          },
+        },
+      };
+      throw error;
+    });
+
+    await assert.rejects(
+      nvidiaChatCompletion([], "test/model", apiKey),
+      (error) => {
+        assert.equal(error.statusCode, 400);
+        assert.match(error.message, /HTTP 400/);
+        assert.match(error.message, /Model unavailable for key \[REDACTED\]/);
+        assert.doesNotMatch(error.message, new RegExp(apiKey));
+        return true;
+      }
+    );
+  });
+
+  it("shows the connection error when NVIDIA returns no HTTP response", async (t) => {
+    t.mock.method(axios, "post", async () => {
+      const error = new Error("getaddrinfo ENOTFOUND example.invalid");
+      error.code = "ENOTFOUND";
+      throw error;
+    });
+
+    await assert.rejects(
+      nvidiaChatCompletion([], "test/model", "test-nvidia-key"),
+      (error) => {
+        assert.equal(error.code, "NVIDIA_REQUEST_FAILED");
+        assert.match(error.message, /ENOTFOUND/);
+        return true;
+      }
+    );
+  });
+
   it("selects NVIDIA providers for both claim extraction and NLI", () => {
     assert.ok(
       LLMFactory.getProvider({ provider: "nvidia", apiKey: "test-nvidia-key" }) instanceof NvidiaProvider

@@ -66,8 +66,10 @@ export function App() {
       const json = await response.json();
 
       if (!response.ok || !json.success) {
+        const message =
+          json.error?.message || `Claim extraction failed with status ${response.status}`;
         throw new Error(
-          json.error?.message || `Claim extraction failed with status ${response.status}`
+          json.error?.code ? `${message} (${json.error.code})` : message
         );
       }
 

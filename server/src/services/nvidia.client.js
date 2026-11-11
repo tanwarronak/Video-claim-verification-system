@@ -34,6 +34,15 @@ export async function nvidiaChatCompletion(
     );
   } catch (cause) {
     const status = cause.response?.status;
+    const responseData = cause.response?.data;
+    const providerMessage =
+      typeof responseData === "string"
+        ? responseData
+        : responseData?.error?.message || responseData?.message || responseData?.detail;
+    const safeProviderMessage =
+      typeof providerMessage === "string"
+        ? providerMessage.trim().replaceAll(apiKey, "[REDACTED]").slice(0, 1000)
+        : "";
     const err = new Error("NVIDIA model request failed.");
     err.statusCode = status || 502;
 
@@ -49,6 +58,16 @@ export async function nvidiaChatCompletion(
       err.statusCode = 504;
     } else {
       err.code = "NVIDIA_REQUEST_FAILED";
+      err.message = status
+        ? `NVIDIA model request failed (HTTP ${status}).`
+        : `NVIDIA model request failed: ${cause.message || cause.code || "unknown connection error"}.`;
+    }
+
+    if (status && !err.message.includes(`HTTP ${status}`)) {
+      err.message += ` (HTTP ${status})`;
+    }
+    if (safeProviderMessage) {
+      err.message += ` Provider response: ${safeProviderMessage}`;
     }
 
     throw err;
